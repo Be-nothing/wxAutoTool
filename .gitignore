@@ -1,0 +1,29 @@
+# Python 字节码与缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 打包产物
+build/
+dist/
+*.spec.bak
+
+# 第三方依赖（体积大，通过 pip 安装）
+libs/
+
+# 运行时产物
+logs/
+*.log
+@AutomationLog.txt
+
+# IDE / 编辑器
+.vscode/
+.idea/
+.trae-cn/
+*.swp
+*.swo
+
+# 操作系统
+Thumbs.db
+.DS_Store

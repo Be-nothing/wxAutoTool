@@ -1,0 +1,128 @@
+# -*- coding: utf-8 -*-
+""" 微信自动检测助手 - UI 样式（Windows 风格）"""
+
+QWidget {
+    background: #f5f5f5;
+    color: #1f1f1f;
+    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    font-size: 13px;
+}
+
+/* 顶部标题 */
+#titleLabel {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2b5797;
+    padding: 4px 0;
+}
+
+/* 状态标签基础样式 */
+QLabel#wxDisconnected, QLabel#runStopped {
+    color: #888888;
+    font-weight: 600;
+}
+QLabel#wxConnected, QLabel#runRunning {
+    color: #107c10;
+    font-weight: 600;
+}
+
+/* 日志窗口 */
+QTextEdit {
+    background: #ffffff;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    padding: 6px;
+}
+
+/* 按钮通用 */
+QPushButton {
+    background: #ffffff;
+    border: 1px solid #c7c7c7;
+    border-radius: 4px;
+    padding: 7px 16px;
+    min-height: 18px;
+}
+QPushButton:hover {
+    background: #f0f6ff;
+    border-color: #2b5797;
+}
+QPushButton:pressed {
+    background: #dde8f5;
+}
+QPushButton:disabled {
+    color: #a0a0a0;
+    background: #f0f0f0;
+    border-color: #d0d0d0;
+}
+
+/* 启动按钮强调色 */
+#startBtn {
+    background: #107c10;
+    color: #ffffff;
+    border: 1px solid #0e6e0e;
+    font-weight: 600;
+}
+#startBtn:hover {
+    background: #138f13;
+}
+#startBtn:pressed {
+    background: #0c6a0c;
+}
+#startBtn:disabled {
+    background: #b0d0b0;
+    color: #e8f0e8;
+    border-color: #a0c0a0;
+}
+
+/* 停止按钮强调色 */
+#stopBtn {
+    background: #c42b1c;
+    color: #ffffff;
+    border: 1px solid #a82418;
+    font-weight: 600;
+}
+#stopBtn:hover {
+    background: #d83a2a;
+}
+#stopBtn:pressed {
+    background: #a82418;
+}
+#stopBtn:disabled {
+    background: #d8b0a8;
+    color: #f0e8e6;
+    border-color: #c8a098;
+}
+
+/* 对话框分组框 */
+QGroupBox {
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    margin-top: 10px;
+    padding-top: 8px;
+    font-weight: 600;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 4px;
+}
+
+/* 输入控件 */
+QSpinBox, QDoubleSpinBox {
+    border: 1px solid #c7c7c7;
+    border-radius: 3px;
+    padding: 3px 6px;
+    background: #ffffff;
+}
+
+/* 菜单 */
+QMenu {
+    background: #ffffff;
+    border: 1px solid #d0d0d0;
+}
+QMenu::item {
+    padding: 6px 24px;
+}
+QMenu::item:selected {
+    background: #f0f6ff;
+}

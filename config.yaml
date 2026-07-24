@@ -1,0 +1,38 @@
+wechat:
+  target: null
+monitor:
+  interval: 2
+action:
+  auto_reply: false
+listeners:
+- type: group
+  name: 几何接单变现3️⃣群
+  rules:
+  - sender: 几何心凉
+    keyword: 扣1
+    reply: '1'
+  - sender: 新发送人
+    keyword: 新关键词
+    reply: 新回复
+- type: friend
+  name: 皆非·
+  rules:
+  - sender: 皆非·
+    keyword: ''
+    reply: '1'
+- type: friend
+  name: '皆非· '
+  rules:
+  - sender: 皆非·
+    keyword: ''
+    reply: '1'
+- type: friend
+  name: 测试用户
+  rules:
+  - sender: ''
+    keyword: 你好
+    reply: 你好呀
+ignore_self: true
+ignore_system: true
+send_interval: 3
+log_file: logs/app.log

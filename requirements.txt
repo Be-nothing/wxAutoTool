@@ -1,0 +1,14 @@
+# 运行时依赖
+PySide6>=6.6.0
+PyYAML>=6.0
+pywin32>=306
+Pillow>=10.0.0
+psutil>=5.9.0
+pyperclip>=1.8.0
+pystray>=0.19.5
+comtypes>=1.4.0
+
+# 打包工具
+pyinstaller>=6.0
+
+# 注意：wxauto 为本项目本地 vendored 库（wxauto/ 目录），不在 requirements 中
