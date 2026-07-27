@@ -67,6 +67,8 @@ class ChatWndLite:
     def __init__(self, who: str, language: str = "cn") -> None:
         self.who = who
         self.language = language
+        # 日志器（与 UiaWxService 共用同名 logger）
+        self._uia_logger = logging.getLogger("wechat.wx_service_uia")
         # 已读消息的 RuntimeId 集合（字符串化，便于哈希）
         self.used_msgids: set = set()
         # 控件引用缓存（只初始化一次）
@@ -235,12 +237,10 @@ class ChatWndLite:
     def _ensure_window_visible(self) -> bool:
         """确保聊天窗口可见（非最小化），避免发送失败和系统响声。
 
-        最小化窗口上 editbox.Click/SendKeys 会失败，触发多次系统提示音，
-        最后回退到 wxauto.SendMsg（_show 置顶）才成功。
-        这里在发送前主动恢复窗口（SW_RESTORE，不置顶），并重新获取 editbox 控件引用，
-        让快速发送一次成功。
+        优化：仅在窗口最小化时恢复，恢复后用短等待 + 延迟 refind，
+        不阻塞发送流程。editbox 引用通过 property 按需刷新。
 
-        Returns: True 表示窗口已恢复（或本就可见），False 表示恢复失败。
+        Returns: True 表示窗口可见，False 表示恢复失败。
         """
         try:
             import win32gui
@@ -251,12 +251,12 @@ class ChatWndLite:
             if win32gui.IsIconic(hwnd):
                 # SW_RESTORE = 9：恢复最小化窗口，不置顶
                 win32gui.ShowWindow(hwnd, 9)
-                # 等待窗口刷新，UIA 树需要时间重建
+                # 短等待让窗口管理器完成恢复（UIA 树会异步刷新）
                 import time as _time
-                _time.sleep(0.5)
+                _time.sleep(0.15)
                 self._uia_logger.info(f"聊天窗口 '{self.who}' 已从最小化恢复")
-                # 恢复后重新获取 editbox 控件引用（旧引用可能已失效）
-                self._refind_editbox()
+                # 标记 editbox 需要重新查找，发送时按需 refind（不在这里阻塞）
+                self._editbox_stale = True
             return True
         except Exception as e:
             self._uia_logger.debug(f"恢复窗口可见失败（非致命）：{e}")
@@ -265,24 +265,23 @@ class ChatWndLite:
     def _refind_editbox(self) -> None:
         """重新获取 editbox 控件引用（窗口恢复后 UIA 树已重建）。
 
-        窗口最小化→恢复过程中，UIA 控件引用可能失效，
-        导致 editbox.Click/SendKeys 静默失败（不回复消息）。
-        这里重新查找 editbox，确保发送成功。
+        仅在 _editbox_stale 时调用，避免每次发送都 refind。
         """
         try:
-            uia = _get_uia()
-            # 重新查找窗口控件（不重新查找 _uia_api，因为 Name/ClassName 不变）
-            # 直接用缓存的 _uia_api 重新获取 editbox
             self._editbox = self._uia_api.EditControl()
-            # 触发一次 Refind，确保控件引用有效
-            self._editbox.GetFirstChildControl()
+            self._editbox_stale = False
             self._uia_logger.debug(f"已重新获取 editbox 控件引用：{self.who}")
         except Exception as e:
             self._uia_logger.warning(f"重新获取 editbox 失败：{e}")
 
     @property
     def editbox(self) -> Any:
-        """编辑框控件引用（供 send_msg 使用）。"""
+        """编辑框控件引用（供 send_msg 使用）。
+
+        窗口恢复后标记为 stale，这里按需重新查找，避免发送时阻塞。
+        """
+        if getattr(self, "_editbox_stale", False):
+            self._refind_editbox()
         return self._editbox
 
 
@@ -414,20 +413,31 @@ class UiaWxService(WxService):
 
     @staticmethod
     def _fast_send_via_editbox(editbox: Any, msg: str) -> None:
-        """通过 editbox 粘贴发送（与 wx_service._fast_send 一致，但 editbox 来自 ChatWndLite）。"""
+        """通过 editbox 粘贴发送（优化版：减少等待时间）。
+
+        优化点：
+        - Click 后短等待（0.05s）让焦点切换，不依赖 HasKeyboardFocus 轮询
+        - 粘贴超时从 5s 缩短到 2s，失败更快回退
+        - GetValuePattern 检查前先等待短时间让粘贴完成
+        """
         import time as _time
         from wxauto.utils import SetClipboardText  # type: ignore
 
         if not editbox.HasKeyboardFocus:
             editbox.Click(simulateMove=False)
+            _time.sleep(0.05)  # 短等待让焦点切换
         t0 = _time.time()
         while True:
-            if _time.time() - t0 > 5:
+            if _time.time() - t0 > 2:  # 超时从 5s 缩短到 2s
                 raise TimeoutError(f"UIA 快速发送粘贴超时：{msg[:20]}")
             SetClipboardText(msg)
             editbox.SendKeys("{Ctrl}v")
-            if editbox.GetValuePattern().Value:
-                break
+            _time.sleep(0.05)  # 等待粘贴完成
+            try:
+                if editbox.GetValuePattern().Value:
+                    break
+            except Exception:
+                break  # GetValuePattern 失败时直接发送，不阻塞
         editbox.SendKeys("{Enter}")
 
     def disconnect(self) -> None:
