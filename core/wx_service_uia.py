@@ -232,25 +232,53 @@ class ChatWndLite:
             child = child.GetNextSiblingControl()
         return ("", False)
 
-    def _ensure_window_visible(self) -> None:
+    def _ensure_window_visible(self) -> bool:
         """确保聊天窗口可见（非最小化），避免发送失败和系统响声。
 
         最小化窗口上 editbox.Click/SendKeys 会失败，触发多次系统提示音，
         最后回退到 wxauto.SendMsg（_show 置顶）才成功。
-        这里在发送前主动恢复窗口（SW_RESTORE，不置顶），让快速发送一次成功。
+        这里在发送前主动恢复窗口（SW_RESTORE，不置顶），并重新获取 editbox 控件引用，
+        让快速发送一次成功。
+
+        Returns: True 表示窗口已恢复（或本就可见），False 表示恢复失败。
         """
         try:
             import win32gui
             hwnd = win32gui.FindWindow("ChatWnd", self.who)
-            if hwnd and win32gui.IsIconic(hwnd):
+            if not hwnd:
+                self._uia_logger.warning(f"未找到聊天窗口 '{self.who}'")
+                return False
+            if win32gui.IsIconic(hwnd):
                 # SW_RESTORE = 9：恢复最小化窗口，不置顶
                 win32gui.ShowWindow(hwnd, 9)
                 # 等待窗口刷新，UIA 树需要时间重建
                 import time as _time
-                _time.sleep(0.3)
+                _time.sleep(0.5)
                 self._uia_logger.info(f"聊天窗口 '{self.who}' 已从最小化恢复")
+                # 恢复后重新获取 editbox 控件引用（旧引用可能已失效）
+                self._refind_editbox()
+            return True
         except Exception as e:
             self._uia_logger.debug(f"恢复窗口可见失败（非致命）：{e}")
+            return False
+
+    def _refind_editbox(self) -> None:
+        """重新获取 editbox 控件引用（窗口恢复后 UIA 树已重建）。
+
+        窗口最小化→恢复过程中，UIA 控件引用可能失效，
+        导致 editbox.Click/SendKeys 静默失败（不回复消息）。
+        这里重新查找 editbox，确保发送成功。
+        """
+        try:
+            uia = _get_uia()
+            # 重新查找窗口控件（不重新查找 _uia_api，因为 Name/ClassName 不变）
+            # 直接用缓存的 _uia_api 重新获取 editbox
+            self._editbox = self._uia_api.EditControl()
+            # 触发一次 Refind，确保控件引用有效
+            self._editbox.GetFirstChildControl()
+            self._uia_logger.debug(f"已重新获取 editbox 控件引用：{self.who}")
+        except Exception as e:
+            self._uia_logger.warning(f"重新获取 editbox 失败：{e}")
 
     @property
     def editbox(self) -> Any:
