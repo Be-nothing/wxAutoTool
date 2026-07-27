@@ -1,4 +1,4 @@
-# Python 字节码与缓存
+﻿# Python 字节码与缓存
 __pycache__/
 *.py[cod]
 *$py.class
@@ -27,3 +27,19 @@ logs/
 # 操作系统
 Thumbs.db
 .DS_Store
+
+# === 新增忽略规则 ===
+# 安装包产物（通过 Release 发布，不进 git）
+product/
+
+# PyInstaller 中间产物（build_reply.spec 产生的中间目录）
+build_reply/
+
+# 临时诊断脚本
+diag_*.py
+_size_*.txt
+_size_*.ps1
+_test_*.py
+
+# 临时截图（UUID 命名的 png）
+[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*.png

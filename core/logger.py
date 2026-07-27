@@ -59,12 +59,26 @@ def setup_logging(
     log_file: str = DEFAULT_LOG_FILE,
     level: int = logging.INFO,
 ) -> logging.Logger:
-    """初始化 root logger，挂载文件/控制台/GUI 三个 Handler。"""
+    """初始化 root logger，挂载文件/控制台/GUI 三个 Handler。
+
+    若默认日志目录（%APPDATA%）不可写，回退到 exe 同级目录的 logs/。
+    """
     global _gui_handler
 
     log_dirpath = os.path.dirname(log_file)
-    if log_dirpath and not os.path.isdir(log_dirpath):
-        os.makedirs(log_dirpath, exist_ok=True)
+    try:
+        if log_dirpath and not os.path.isdir(log_dirpath):
+            os.makedirs(log_dirpath, exist_ok=True)
+        # 验证可写
+        with open(log_file, "a", encoding="utf-8") as _f:
+            pass
+    except Exception:
+        # 回退到 exe 同级目录
+        from core.paths import is_frozen, app_root
+        if is_frozen():
+            fallback_dir = os.path.join(app_root(), "logs")
+            os.makedirs(fallback_dir, exist_ok=True)
+            log_file = os.path.join(fallback_dir, "app.log")
 
     logger = logging.getLogger()
     logger.setLevel(level)

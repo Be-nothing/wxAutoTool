@@ -34,5 +34,5 @@ listeners:
     reply: 你好呀
 ignore_self: true
 ignore_system: true
-send_interval: 3
+send_interval: 1.5
 log_file: logs/app.log
