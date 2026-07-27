@@ -4,7 +4,7 @@
 
 **基于 PySide6 + wxauto 的微信 PC 版自动化工具**
 
-轻量 · 稳定 · 高性能 · 现代化 UI
+轻量 · 稳定 · 高性能 · 现代化 UI · 快速回复
 
 ---
 
@@ -69,6 +69,8 @@
 | 💾 **原子配置** | 临时文件 + 重命名写入，配置损坏自动从 .bak 恢复 |
 | 🔄 **自动重连** | 消息拉取失败自动重试，连续失败按指数退避 |
 | 📋 **彩色日志** | 按级别着色，自动滚动，限制 2000 行避免内存膨胀 |
+| ⚡ **快速发送** | 粘贴发送 + editbox 缓存，发送延迟 < 2 秒 |
+| 🔄 **窗口恢复** | 最小化窗口收到消息时自动恢复（不置顶），editbox 按需 refind |
 
 ---
 
@@ -330,6 +332,21 @@ key = winreg.OpenKey(
 value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
 is_dark = (value == 0)  # 0 = 深色, 1 = 浅色
 ```
+
+### ⚡ 快速发送优化
+
+发送消息时绕过 wxauto 的 `_show()`（4 个 Win32 API 调用，耗时 0.5-1 秒），直接操作 editbox 粘贴发送：
+
+```python
+# 直接用 editbox 粘贴发送，跳过 wxauto SendMsg 的 _show()
+SetClipboardText(msg)
+editbox.SendKeys("{Ctrl}v")
+editbox.SendKeys("{Enter}")
+```
+
+**窗口最小化场景**：发送前检测 `IsIconic`，是则 `SW_RESTORE` 恢复（不置顶），等待 150ms 让窗口管理器完成恢复，editbox 标记为 stale 由 property 按需 refind，避免发送阻塞。
+
+**优化效果**：发送延迟从 5-6 秒降至 1-2 秒。
 
 ### 💾 配置原子写入
 
