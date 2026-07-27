@@ -74,6 +74,14 @@ class MainWindow(QMainWindow):
         self._update_button_state()
         self._refresh_listen_count()
 
+        # 微信状态定时检测：启动时检测一次，之后每 5 秒轮询
+        # 监控运行期间由 monitor 回调更新状态，跳过轮询
+        self._wx_status_timer = QTimer(self)
+        self._wx_status_timer.timeout.connect(self._refresh_wx_status)
+        self._wx_status_timer.start(5000)
+        # 延迟 500ms 首次检测，避免阻塞窗口显示
+        QTimer.singleShot(500, self._refresh_wx_status)
+
     # ------------------------------------------------------------------
     # UI 构建
     # ------------------------------------------------------------------
@@ -256,6 +264,14 @@ class MainWindow(QMainWindow):
         count = len(self.config_manager.config.get("listeners", []) or [])
         self.dashboard_view.update_listen_count(count)
 
+    def _refresh_wx_status(self) -> None:
+        """刷新仪表盘的微信连接状态（仅在未监控时主动检测）。"""
+        # 监控运行中由 monitor 回调更新，跳过
+        if self._is_running():
+            return
+        connected = self._check_wx_connected()
+        self._set_wx_status("connected" if connected else "disconnected")
+
     def _set_wx_status(self, value: str) -> None:
         connected = (value == "connected")
         self.dashboard_view.update_wx_status(connected)
@@ -407,18 +423,25 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(100, self._wait_thread_quit)
 
     def _check_wx_connected(self) -> bool:
-        """启动前自动检测微信是否已运行并登录（不打开/激活微信窗口）。
+        """检测微信是否已运行并登录（不打开/激活微信窗口）。
 
-        仅用 FindWindow 查找微信主窗口，不调用 WeChat() 构造函数，
-        避免 wxauto 内部 ShowWindow/SetWindowPos 强制显示微信窗口。
+        用 ctypes 直接调 FindWindowW，避免 win32gui 包装层异常。
+        兼容多个微信版本的窗口类名。
         """
         try:
-            import win32gui
-            # WeChatMainWndForPC 是微信 PC 版主窗口类名
-            hwnd = win32gui.FindWindow("WeChatMainWndForPC", None)
-            return hwnd != 0
+            import ctypes
+            user32 = ctypes.windll.user32
+            # 微信 PC 版不同版本的主窗口类名
+            # WeChatMainWndForPC: 3.x 经典版
+            # WeixinMainWndForPC: 4.x 新版（2024+ 改名）
+            class_names = ["WeChatMainWndForPC", "WeixinMainWndForPC"]
+            for cls in class_names:
+                hwnd = user32.FindWindowW(cls, None)
+                if hwnd:
+                    return True
+            return False
         except Exception as e:
-            logging.getLogger("wechat.gui").warning(f"微信连接预检失败：{e}")
+            logging.getLogger("wechat.gui").warning(f"微信连接检测失败：{e}")
             return False
 
     def _verify_listener_name(self, name: str) -> tuple:
