@@ -232,6 +232,26 @@ class ChatWndLite:
             child = child.GetNextSiblingControl()
         return ("", False)
 
+    def _ensure_window_visible(self) -> None:
+        """确保聊天窗口可见（非最小化），避免发送失败和系统响声。
+
+        最小化窗口上 editbox.Click/SendKeys 会失败，触发多次系统提示音，
+        最后回退到 wxauto.SendMsg（_show 置顶）才成功。
+        这里在发送前主动恢复窗口（SW_RESTORE，不置顶），让快速发送一次成功。
+        """
+        try:
+            import win32gui
+            hwnd = win32gui.FindWindow("ChatWnd", self.who)
+            if hwnd and win32gui.IsIconic(hwnd):
+                # SW_RESTORE = 9：恢复最小化窗口，不置顶
+                win32gui.ShowWindow(hwnd, 9)
+                # 等待窗口刷新，UIA 树需要时间重建
+                import time as _time
+                _time.sleep(0.3)
+                self._uia_logger.info(f"聊天窗口 '{self.who}' 已从最小化恢复")
+        except Exception as e:
+            self._uia_logger.debug(f"恢复窗口可见失败（非致命）：{e}")
+
     @property
     def editbox(self) -> Any:
         """编辑框控件引用（供 send_msg 使用）。"""
@@ -348,6 +368,9 @@ class UiaWxService(WxService):
         if editbox is None:
             # 回退到父类（用 wxauto 原生 SendMsg）
             return super().send_msg(chat_obj, msg)
+        # 发送前确保窗口可见（避免最小化时发送失败触发系统响声）
+        if hasattr(chat_obj, "_ensure_window_visible"):
+            chat_obj._ensure_window_visible()
         try:
             self._fast_send_via_editbox(editbox, msg)
             return True
